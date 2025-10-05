@@ -65,6 +65,7 @@ model Organization {
 
     members     OrganizationMember[]
     invitations Invitation[]
+    categories  ExpenseCategory[]
 }
 
 enum Role {
@@ -100,5 +101,19 @@ model Invitation {
 
     @@unique([email, organizationId])
     @@index([token])
+    @@index([organizationId])
+}
+
+model ExpenseCategory {
+    id             String       @id @default(cuid())
+    name           String
+    description    String?
+    organizationId String
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+    @@unique([name, organizationId])
     @@index([organizationId])
 }

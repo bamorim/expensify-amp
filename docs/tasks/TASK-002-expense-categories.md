@@ -4,10 +4,11 @@
 
 - **Task ID**: `TASK-002`
 - **Title**: Expense Categories Management
-- **Status**: `Not Started`
+- **Status**: `Completed`
 - **Priority**: `P0`
 - **Created**: 2025-10-05
 - **Updated**: 2025-10-05
+- **Completed**: 2025-10-05
 - **Estimated Effort**: 3-4 hours
 
 ## Related Documents
@@ -21,35 +22,35 @@ Allow admins to create, edit, and delete expense categories within their organiz
 
 ## Acceptance Criteria
 
-- [ ] Database: ExpenseCategory model (name, description, organizationId)
-- [ ] Migration created and applied
-- [ ] tRPC router: CRUD operations for categories (admin only)
-- [ ] UI: Categories management page for admins
-- [ ] UI: Create/edit category form
-- [ ] UI: Delete category with confirmation
-- [ ] Authorization: Only admins can manage categories
-- [ ] Tests: Category CRUD procedures tested
-- [ ] Data isolation: Categories scoped to organization
+- [x] Database: ExpenseCategory model (name, description, organizationId)
+- [x] Migration created and applied
+- [x] tRPC router: CRUD operations for categories (admin only)
+- [x] UI: Categories management page for admins
+- [x] UI: Create/edit category form
+- [x] UI: Delete category with confirmation
+- [x] Authorization: Only admins can manage categories
+- [x] Tests: Category CRUD procedures tested
+- [x] Data isolation: Categories scoped to organization
 
 ## TODOs
 
-- [ ] Add ExpenseCategory model to schema
-- [ ] Create migration
-- [ ] Create category tRPC router with CRUD procedures
-- [ ] Add role-based authorization middleware
-- [ ] Build categories list page
-- [ ] Build create/edit category form
-- [ ] Add delete functionality
-- [ ] Write tests for category procedures
-- [ ] Test admin-only access
+- [x] Add ExpenseCategory model to schema
+- [x] Create migration
+- [x] Create category tRPC router with CRUD procedures
+- [x] Add role-based authorization middleware
+- [x] Build categories list page
+- [x] Build create/edit category form
+- [x] Add delete functionality
+- [x] Write tests for category procedures
+- [x] Test admin-only access
 
 ## Completion Checklist
 
-- [ ] All acceptance criteria met
-- [ ] Code follows project standards
-- [ ] Tests written and passing
-- [ ] Admins can manage categories via UI
-- [ ] Members cannot access category management
+- [x] All acceptance criteria met
+- [x] Code follows project standards
+- [x] Tests written and passing
+- [x] Admins can manage categories via UI
+- [x] Members cannot access category management
 
 ## Notes
 
