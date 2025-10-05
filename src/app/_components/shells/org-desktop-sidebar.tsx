@@ -19,6 +19,10 @@ export function OrgDesktopSidebar({ organizationId }: OrgDesktopSidebarProps) {
       href: `/organizations/${organizationId}/categories`,
       label: "Categories",
     },
+    {
+      href: `/organizations/${organizationId}/policies`,
+      label: "Policies",
+    },
   ];
 
   return (

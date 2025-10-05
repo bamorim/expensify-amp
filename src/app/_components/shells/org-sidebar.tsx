@@ -32,6 +32,10 @@ export function OrgSidebar({ organizationId, userEmail }: OrgSidebarProps) {
       href: `/organizations/${organizationId}/categories`,
       label: "Categories",
     },
+    {
+      href: `/organizations/${organizationId}/policies`,
+      label: "Policies",
+    },
   ];
 
   return (
