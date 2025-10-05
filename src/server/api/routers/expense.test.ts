@@ -319,4 +319,319 @@ describe("ExpenseRouter", () => {
       ).rejects.toThrow("Not a member of this organization");
     });
   });
+
+  describe("listPending", () => {
+    it("should list pending expenses for admins", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      await db.expense.createMany({
+        data: [
+          {
+            userId,
+            organizationId,
+            categoryId,
+            amount: 100,
+            date: new Date(),
+            description: "Pending expense 1",
+            status: "PENDING",
+          },
+          {
+            userId,
+            organizationId,
+            categoryId,
+            amount: 200,
+            date: new Date(),
+            description: "Approved expense",
+            status: "APPROVED",
+          },
+          {
+            userId,
+            organizationId,
+            categoryId,
+            amount: 300,
+            date: new Date(),
+            description: "Pending expense 2",
+            status: "PENDING",
+          },
+        ],
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.listPending({ organizationId });
+
+      expect(result).toHaveLength(2);
+      expect(result.every((e) => e.status === "PENDING")).toBe(true);
+    });
+
+    it("should reject non-admins from listing pending expenses", async () => {
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.listPending({ organizationId }),
+      ).rejects.toThrow("Only admins can view pending expenses");
+    });
+  });
+
+  describe("approve", () => {
+    it("should approve pending expense as admin", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Pending expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.approve({ expenseId: expense.id });
+
+      expect(result.status).toBe("APPROVED");
+      expect(result.reviewedBy).toBe(userId);
+      expect(result.reviewedAt).toBeTruthy();
+    });
+
+    it("should reject non-admins from approving expenses", async () => {
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Pending expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.approve({ expenseId: expense.id }),
+      ).rejects.toThrow("Only admins can approve expenses");
+    });
+
+    it("should reject approving non-pending expenses", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Already approved",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.approve({ expenseId: expense.id }),
+      ).rejects.toThrow("Only pending expenses can be approved");
+    });
+  });
+
+  describe("reject", () => {
+    it("should reject pending expense as admin with comment", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Pending expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.reject({
+        expenseId: expense.id,
+        comment: "Missing receipt",
+      });
+
+      expect(result.status).toBe("REJECTED");
+      expect(result.reviewedBy).toBe(userId);
+      expect(result.reviewedAt).toBeTruthy();
+      expect(result.reviewComment).toBe("Missing receipt");
+    });
+
+    it("should reject pending expense without comment", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Pending expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.reject({ expenseId: expense.id });
+
+      expect(result.status).toBe("REJECTED");
+      expect(result.reviewedBy).toBe(userId);
+      expect(result.reviewComment).toBeNull();
+    });
+
+    it("should reject non-admins from rejecting expenses", async () => {
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Pending expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.reject({ expenseId: expense.id }),
+      ).rejects.toThrow("Only admins can reject expenses");
+    });
+
+    it("should reject rejecting non-pending expenses", async () => {
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const expense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 100,
+          date: new Date(),
+          description: "Already approved",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.reject({ expenseId: expense.id }),
+      ).rejects.toThrow("Only pending expenses can be rejected");
+    });
+  });
 });

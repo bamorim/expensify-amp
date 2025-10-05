@@ -136,4 +136,178 @@ export const expenseRouter = createTRPCRouter({
         },
       });
     }),
+
+  listPending: protectedProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const membership = await ctx.db.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: ctx.session.user.id,
+            organizationId: input.organizationId,
+          },
+        },
+      });
+
+      if (!membership || membership.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can view pending expenses",
+        });
+      }
+
+      return ctx.db.expense.findMany({
+        where: {
+          organizationId: input.organizationId,
+          status: "PENDING",
+        },
+        include: {
+          category: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+    }),
+
+  approve: protectedProcedure
+    .input(z.object({ expenseId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const expense = await ctx.db.expense.findUnique({
+        where: { id: input.expenseId },
+      });
+
+      if (!expense) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Expense not found",
+        });
+      }
+
+      const membership = await ctx.db.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: ctx.session.user.id,
+            organizationId: expense.organizationId,
+          },
+        },
+      });
+
+      if (!membership || membership.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can approve expenses",
+        });
+      }
+
+      if (expense.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only pending expenses can be approved",
+        });
+      }
+
+      return ctx.db.expense.update({
+        where: { id: input.expenseId },
+        data: {
+          status: "APPROVED",
+          reviewedBy: ctx.session.user.id,
+          reviewedAt: new Date(),
+        },
+        include: {
+          category: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+    }),
+
+  reject: protectedProcedure
+    .input(
+      z.object({
+        expenseId: z.string(),
+        comment: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const expense = await ctx.db.expense.findUnique({
+        where: { id: input.expenseId },
+      });
+
+      if (!expense) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Expense not found",
+        });
+      }
+
+      const membership = await ctx.db.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: ctx.session.user.id,
+            organizationId: expense.organizationId,
+          },
+        },
+      });
+
+      if (!membership || membership.role !== "ADMIN") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only admins can reject expenses",
+        });
+      }
+
+      if (expense.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only pending expenses can be rejected",
+        });
+      }
+
+      return ctx.db.expense.update({
+        where: { id: input.expenseId },
+        data: {
+          status: "REJECTED",
+          reviewedBy: ctx.session.user.id,
+          reviewedAt: new Date(),
+          reviewComment: input.comment,
+        },
+        include: {
+          category: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+    }),
 });

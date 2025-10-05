@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { api } from "~/trpc/react";
 
 interface OrgDesktopSidebarProps {
   organizationId: string;
@@ -9,12 +10,25 @@ interface OrgDesktopSidebarProps {
 
 export function OrgDesktopSidebar({ organizationId }: OrgDesktopSidebarProps) {
   const pathname = usePathname();
+  const [organization] = api.organization.getOrganization.useSuspenseQuery({
+    organizationId,
+  });
+
+  const isAdmin = organization.currentUserRole === "ADMIN";
 
   const navItems = [
     {
       href: `/organizations/${organizationId}/expenses`,
       label: "My Expenses",
     },
+    ...(isAdmin
+      ? [
+          {
+            href: `/organizations/${organizationId}/review`,
+            label: "Review Expenses",
+          },
+        ]
+      : []),
     {
       href: `/organizations/${organizationId}/team`,
       label: "Team",

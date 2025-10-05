@@ -49,6 +49,7 @@ model User {
     organizationMembers OrganizationMember[]
     policies      Policy[]
     expenses      Expense[]
+    reviewedExpenses Expense[] @relation("ReviewedExpenses")
 }
 
 model VerificationToken {
@@ -159,15 +160,20 @@ model Expense {
     date           DateTime
     description    String
     status         ExpenseStatus @default(PENDING)
+    reviewedBy     String?
+    reviewedAt     DateTime?
+    reviewComment  String?
     createdAt      DateTime      @default(now())
     updatedAt      DateTime      @updatedAt
 
     user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
     organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     category     ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+    reviewer     User?           @relation("ReviewedExpenses", fields: [reviewedBy], references: [id], onDelete: SetNull)
 
     @@index([userId])
     @@index([organizationId])
     @@index([categoryId])
     @@index([status])
+    @@index([reviewedBy])
 }

@@ -13,6 +13,7 @@ import {
   SheetTrigger,
 } from "~/components/ui/sheet";
 import { OrgSelector } from "./org-selector";
+import { api } from "~/trpc/react";
 
 interface OrgSidebarProps {
   organizationId: string;
@@ -22,12 +23,25 @@ interface OrgSidebarProps {
 export function OrgSidebar({ organizationId, userEmail }: OrgSidebarProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const [organization] = api.organization.getOrganization.useSuspenseQuery({
+    organizationId,
+  });
+
+  const isAdmin = organization.currentUserRole === "ADMIN";
 
   const navItems = [
     {
       href: `/organizations/${organizationId}/expenses`,
       label: "My Expenses",
     },
+    ...(isAdmin
+      ? [
+          {
+            href: `/organizations/${organizationId}/review`,
+            label: "Review Expenses",
+          },
+        ]
+      : []),
     {
       href: `/organizations/${organizationId}/team`,
       label: "Team",

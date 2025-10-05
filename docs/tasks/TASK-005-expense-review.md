@@ -4,7 +4,7 @@
 
 - **Task ID**: `TASK-005`
 - **Title**: Expense Review Workflow
-- **Status**: `Not Started`
+- **Status**: `Completed`
 - **Priority**: `P0`
 - **Created**: 2025-10-05
 - **Updated**: 2025-10-05
