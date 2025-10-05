@@ -3,11 +3,6 @@ import { faker } from "@faker-js/faker";
 import { db } from "~/server/db";
 import { organizationRouter } from "./organization";
 
-vi.mock("~/server/db");
-vi.mock("~/server/auth", () => ({
-  auth: vi.fn(),
-}));
-
 describe("OrganizationRouter", () => {
   let testUserId: string;
 

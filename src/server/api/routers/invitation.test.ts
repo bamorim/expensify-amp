@@ -3,11 +3,6 @@ import { faker } from "@faker-js/faker";
 import { db } from "~/server/db";
 import { invitationRouter } from "./invitation";
 
-vi.mock("~/server/db");
-vi.mock("~/server/auth", () => ({
-  auth: vi.fn(),
-}));
-
 describe("InvitationRouter", () => {
   let adminUserId: string;
   let memberUserId: string;
