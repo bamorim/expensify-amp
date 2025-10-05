@@ -12,6 +12,10 @@ export function OrgDesktopSidebar({ organizationId }: OrgDesktopSidebarProps) {
 
   const navItems = [
     {
+      href: `/organizations/${organizationId}/expenses`,
+      label: "My Expenses",
+    },
+    {
       href: `/organizations/${organizationId}/team`,
       label: "Team",
     },

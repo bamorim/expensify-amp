@@ -48,6 +48,7 @@ model User {
     sessions      Session[]
     organizationMembers OrganizationMember[]
     policies      Policy[]
+    expenses      Expense[]
 }
 
 model VerificationToken {
@@ -68,6 +69,7 @@ model Organization {
     invitations Invitation[]
     categories  ExpenseCategory[]
     policies    Policy[]
+    expenses    Expense[]
 }
 
 enum Role {
@@ -116,6 +118,7 @@ model ExpenseCategory {
 
     organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
     policies     Policy[]
+    expenses     Expense[]
 
     @@unique([name, organizationId])
     @@index([organizationId])
@@ -139,4 +142,32 @@ model Policy {
     @@index([organizationId])
     @@index([categoryId])
     @@index([userId])
+}
+
+enum ExpenseStatus {
+    PENDING
+    APPROVED
+    REJECTED
+}
+
+model Expense {
+    id             String        @id @default(cuid())
+    userId         String
+    organizationId String
+    categoryId     String
+    amount         Float
+    date           DateTime
+    description    String
+    status         ExpenseStatus @default(PENDING)
+    createdAt      DateTime      @default(now())
+    updatedAt      DateTime      @updatedAt
+
+    user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+    organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    category     ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([organizationId])
+    @@index([categoryId])
+    @@index([status])
 }
