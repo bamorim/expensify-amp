@@ -4,7 +4,7 @@
 
 - **Task ID**: `TASK-006`
 - **Title**: User Invitations & Team Management
-- **Status**: `Not Started`
+- **Status**: `Complete`
 - **Priority**: `P1`
 - **Created**: 2025-10-05
 - **Updated**: 2025-10-05

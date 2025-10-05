@@ -10,18 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
-}
-
 // Necessary for Next auth
 model Account {
     id                       String  @id @default(cuid())
@@ -58,7 +46,7 @@ model User {
     image         String?
     accounts      Account[]
     sessions      Session[]
-    posts         Post[]
+    organizationMembers OrganizationMember[]
 }
 
 model VerificationToken {
@@ -67,4 +55,50 @@ model VerificationToken {
     expires    DateTime
 
     @@unique([identifier, token])
+}
+
+model Organization {
+    id        String   @id @default(cuid())
+    name      String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    members     OrganizationMember[]
+    invitations Invitation[]
+}
+
+enum Role {
+    ADMIN
+    MEMBER
+}
+
+model OrganizationMember {
+    id             String       @id @default(cuid())
+    userId         String
+    organizationId String
+    role           Role
+    createdAt      DateTime     @default(now())
+
+    user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, organizationId])
+    @@index([organizationId])
+    @@index([userId])
+}
+
+model Invitation {
+    id             String       @id @default(cuid())
+    email          String
+    organizationId String
+    role           Role         @default(MEMBER)
+    token          String       @unique @default(cuid())
+    expiresAt      DateTime
+    createdAt      DateTime     @default(now())
+
+    organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+    @@unique([email, organizationId])
+    @@index([token])
+    @@index([organizationId])
 }
