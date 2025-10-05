@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { SpendPeriod } from "@prisma/client";
 
 export const policyRouter = createTRPCRouter({
   create: protectedProcedure
@@ -11,6 +12,7 @@ export const policyRouter = createTRPCRouter({
         userId: z.string().optional(),
         maxAmount: z.number().positive(),
         requiresReview: z.boolean().default(false),
+        spendPeriod: z.nativeEnum(SpendPeriod).default("PER_EXPENSE"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -86,6 +88,7 @@ export const policyRouter = createTRPCRouter({
             userId: input.userId,
             maxAmount: input.maxAmount,
             requiresReview: input.requiresReview,
+            spendPeriod: input.spendPeriod,
           },
           include: {
             category: true,
@@ -153,6 +156,7 @@ export const policyRouter = createTRPCRouter({
         id: z.string(),
         maxAmount: z.number().positive().optional(),
         requiresReview: z.boolean().optional(),
+        spendPeriod: z.nativeEnum(SpendPeriod).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -188,6 +192,7 @@ export const policyRouter = createTRPCRouter({
         data: {
           maxAmount: input.maxAmount,
           requiresReview: input.requiresReview,
+          spendPeriod: input.spendPeriod,
         },
         include: {
           category: true,

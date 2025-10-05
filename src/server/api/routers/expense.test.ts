@@ -634,4 +634,363 @@ describe("ExpenseRouter", () => {
       ).rejects.toThrow("Only pending expenses can be rejected");
     });
   });
+
+  describe("spend period budget validation", () => {
+    it("should reject expense when MONTHLY budget would be exceeded", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 1000,
+          requiresReview: false,
+          spendPeriod: "MONTHLY",
+        },
+      });
+
+      // Create an already approved expense for this month
+      const thisMonth = new Date("2025-03-15T12:00:00Z");
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 700,
+          date: thisMonth,
+          description: "Already approved expense",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 400, // Would exceed 1000 limit (700 + 400 = 1100)
+        date: new Date("2025-03-20T12:00:00Z"),
+        description: "Another expense this month",
+      });
+
+      expect(result.status).toBe("REJECTED");
+    });
+
+    it("should approve expense when MONTHLY budget is not exceeded", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 1000,
+          requiresReview: false,
+          spendPeriod: "MONTHLY",
+        },
+      });
+
+      const thisMonth = new Date("2025-03-15T12:00:00Z");
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 700,
+          date: thisMonth,
+          description: "Already approved expense",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 250, // Within limit (700 + 250 = 950)
+        date: new Date("2025-03-20T12:00:00Z"),
+        description: "Another expense this month",
+      });
+
+      expect(result.status).toBe("APPROVED");
+    });
+
+    it("should not count expenses from previous month in MONTHLY budget", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 1000,
+          requiresReview: false,
+          spendPeriod: "MONTHLY",
+        },
+      });
+
+      // Previous month expense
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 700,
+          date: new Date("2025-02-15T12:00:00Z"),
+          description: "Last month expense",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 900, // Should be approved since previous month doesn't count
+        date: new Date("2025-03-15T12:00:00Z"),
+        description: "This month expense",
+      });
+
+      expect(result.status).toBe("APPROVED");
+    });
+
+    it("should reject approval when WEEKLY budget would be exceeded", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 500,
+          requiresReview: true,
+          spendPeriod: "WEEKLY",
+        },
+      });
+
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      // Approved expense earlier this week
+      const monday = new Date("2025-03-10T12:00:00Z");
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 300,
+          date: monday,
+          description: "Monday expense",
+          status: "APPROVED",
+        },
+      });
+
+      // Pending expense from same week
+      const wednesday = new Date("2025-03-12T12:00:00Z");
+      const pendingExpense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 250, // Would exceed limit (300 + 250 = 550)
+          date: wednesday,
+          description: "Wednesday expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      await expect(
+        caller.expense.approve({ expenseId: pendingExpense.id }),
+      ).rejects.toThrow("Approving this expense would exceed the budget");
+    });
+
+    it("should allow approval when WEEKLY budget is not exceeded", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 500,
+          requiresReview: true,
+          spendPeriod: "WEEKLY",
+        },
+      });
+
+      await db.organizationMember.update({
+        where: {
+          userId_organizationId: {
+            userId,
+            organizationId,
+          },
+        },
+        data: { role: "ADMIN" },
+      });
+
+      const monday = new Date("2025-03-10T12:00:00Z");
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 300,
+          date: monday,
+          description: "Monday expense",
+          status: "APPROVED",
+        },
+      });
+
+      const wednesday = new Date("2025-03-12T12:00:00Z");
+      const pendingExpense = await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 150, // Within limit (300 + 150 = 450)
+          date: wednesday,
+          description: "Wednesday expense",
+          status: "PENDING",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      const result = await caller.expense.approve({
+        expenseId: pendingExpense.id,
+      });
+
+      expect(result.status).toBe("APPROVED");
+    });
+
+    it("should handle DAILY spend period correctly", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 200,
+          requiresReview: false,
+          spendPeriod: "DAILY",
+        },
+      });
+
+      const today = new Date("2025-03-15T09:00:00Z");
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 150,
+          date: today,
+          description: "Morning expense",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+      
+      // Should reject - same day, would exceed
+      const laterToday = new Date("2025-03-15T15:00:00Z");
+      const rejected = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 100, // Would exceed 200 limit (150 + 100 = 250)
+        date: laterToday,
+        description: "Afternoon expense",
+      });
+      expect(rejected.status).toBe("REJECTED");
+
+      // Should approve - different day
+      const nextDay = new Date("2025-03-16T09:00:00Z");
+      const approved = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 150,
+        date: nextDay,
+        description: "Next day expense",
+      });
+      expect(approved.status).toBe("APPROVED");
+    });
+
+    it("should handle YEARLY spend period correctly", async () => {
+      await db.policy.create({
+        data: {
+          organizationId,
+          categoryId,
+          maxAmount: 10000,
+          requiresReview: false,
+          spendPeriod: "YEARLY",
+        },
+      });
+
+      await db.expense.create({
+        data: {
+          userId,
+          organizationId,
+          categoryId,
+          amount: 9000,
+          date: new Date("2025-01-15T12:00:00Z"),
+          description: "January expense",
+          status: "APPROVED",
+        },
+      });
+
+      const mockSession = {
+        user: { id: userId },
+        expires: "2030-12-31T23:59:59.999Z",
+      };
+      vi.mocked(auth).mockResolvedValue(mockSession);
+
+      const caller = createCaller({ db, session: mockSession });
+
+      // Should reject - same year, would exceed
+      const laterInYear = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 2000, // Would exceed 10000 limit
+        date: new Date("2025-11-15T12:00:00Z"),
+        description: "November expense",
+      });
+      expect(laterInYear.status).toBe("REJECTED");
+
+      // Should approve - next year
+      const nextYear = await caller.expense.submit({
+        organizationId,
+        categoryId,
+        amount: 5000,
+        date: new Date("2026-01-15T12:00:00Z"),
+        description: "Next year expense",
+      });
+      expect(nextYear.status).toBe("APPROVED");
+    });
+  });
 });

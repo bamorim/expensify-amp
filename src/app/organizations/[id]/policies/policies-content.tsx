@@ -45,6 +45,7 @@ interface PolicyFormData {
   userId: string;
   maxAmount: string;
   requiresReview: boolean;
+  spendPeriod: "PER_EXPENSE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
 }
 
 export function PoliciesContent({
@@ -58,12 +59,14 @@ export function PoliciesContent({
     id: string;
     maxAmount: number;
     requiresReview: boolean;
+    spendPeriod: "PER_EXPENSE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
   } | null>(null);
   const [formData, setFormData] = useState<PolicyFormData>({
     categoryId: "",
     userId: "org-wide",
     maxAmount: "",
     requiresReview: false,
+    spendPeriod: "PER_EXPENSE",
   });
 
   const utils = api.useUtils();
@@ -87,6 +90,7 @@ export function PoliciesContent({
         userId: "org-wide",
         maxAmount: "",
         requiresReview: false,
+        spendPeriod: "PER_EXPENSE",
       });
     },
   });
@@ -118,6 +122,7 @@ export function PoliciesContent({
       userId: formData.userId === "org-wide" ? undefined : formData.userId,
       maxAmount: parseFloat(formData.maxAmount),
       requiresReview: formData.requiresReview,
+      spendPeriod: formData.spendPeriod,
     });
   };
 
@@ -129,6 +134,7 @@ export function PoliciesContent({
       id: editingPolicy.id,
       maxAmount: parseFloat(formData.maxAmount),
       requiresReview: formData.requiresReview,
+      spendPeriod: formData.spendPeriod,
     });
   };
 
@@ -136,6 +142,7 @@ export function PoliciesContent({
     id: string;
     maxAmount: number;
     requiresReview: boolean;
+    spendPeriod: "PER_EXPENSE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY";
   }) => {
     setEditingPolicy(policy);
     setFormData({
@@ -143,6 +150,7 @@ export function PoliciesContent({
       userId: "",
       maxAmount: policy.maxAmount.toString(),
       requiresReview: policy.requiresReview,
+      spendPeriod: policy.spendPeriod,
     });
     setEditDialogOpen(true);
   };
@@ -239,6 +247,26 @@ export function PoliciesContent({
                       required
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="spendPeriod">Spend Period</Label>
+                    <Select
+                      value={formData.spendPeriod}
+                      onValueChange={(value: "PER_EXPENSE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY") =>
+                        setFormData({ ...formData, spendPeriod: value })
+                      }
+                    >
+                      <SelectTrigger id="spendPeriod">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PER_EXPENSE">Per Expense</SelectItem>
+                        <SelectItem value="DAILY">Daily</SelectItem>
+                        <SelectItem value="WEEKLY">Weekly</SelectItem>
+                        <SelectItem value="MONTHLY">Monthly</SelectItem>
+                        <SelectItem value="YEARLY">Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center space-x-2">
                     <input
                       type="checkbox"
@@ -312,21 +340,21 @@ export function PoliciesContent({
                         className="flex items-center justify-between p-4 border rounded-lg"
                       >
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            {policy.userId ? (
-                              <Badge variant="secondary">
-                                {policy.user?.name ?? policy.user?.email}
-                              </Badge>
-                            ) : (
-                              <Badge>Organization-wide</Badge>
-                            )}
-                            {policy.requiresReview && (
-                              <Badge variant="outline">Requires Review</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm font-medium">
-                            Max: ${policy.maxAmount.toFixed(2)}
-                          </p>
+                        <div className="flex items-center gap-2 mb-1">
+                        {policy.userId ? (
+                        <Badge variant="secondary">
+                        {policy.user?.name ?? policy.user?.email}
+                        </Badge>
+                        ) : (
+                        <Badge>Organization-wide</Badge>
+                        )}
+                        {policy.requiresReview && (
+                        <Badge variant="outline">Requires Review</Badge>
+                        )}
+                        </div>
+                        <p className="text-sm font-medium">
+                        Max: ${policy.maxAmount.toFixed(2)} {policy.spendPeriod !== "PER_EXPENSE" && `(${policy.spendPeriod.toLowerCase().replace('_', ' ')})`}
+                        </p>
                         </div>
                         {isAdmin && (
                           <div className="flex gap-2">
@@ -401,6 +429,26 @@ export function PoliciesContent({
                     }
                     required
                   />
+                </div>
+                <div>
+                  <Label htmlFor="edit-spendPeriod">Spend Period</Label>
+                  <Select
+                    value={formData.spendPeriod}
+                    onValueChange={(value: "PER_EXPENSE" | "DAILY" | "WEEKLY" | "MONTHLY" | "YEARLY") =>
+                      setFormData({ ...formData, spendPeriod: value })
+                    }
+                  >
+                    <SelectTrigger id="edit-spendPeriod">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PER_EXPENSE">Per Expense</SelectItem>
+                      <SelectItem value="DAILY">Daily</SelectItem>
+                      <SelectItem value="WEEKLY">Weekly</SelectItem>
+                      <SelectItem value="MONTHLY">Monthly</SelectItem>
+                      <SelectItem value="YEARLY">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input

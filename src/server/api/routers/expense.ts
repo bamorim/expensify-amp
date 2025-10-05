@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { validateBudget } from "~/server/lib/budget-validation";
 
 export const expenseRouter = createTRPCRouter({
   submit: protectedProcedure
@@ -70,15 +71,27 @@ export const expenseRouter = createTRPCRouter({
       if (!applicablePolicy) {
         // No policy found - default to pending for manual review
         status = "PENDING";
-      } else if (input.amount > applicablePolicy.maxAmount) {
-        // Over limit - auto-reject
-        status = "REJECTED";
-      } else if (applicablePolicy.requiresReview) {
-        // Within limit but requires review
-        status = "PENDING";
       } else {
-        // Within limit and no review required - auto-approve
-        status = "APPROVED";
+        const budgetValidation = await validateBudget(
+          ctx.db,
+          ctx.session.user.id,
+          input.categoryId,
+          input.organizationId,
+          input.amount,
+          input.date,
+          applicablePolicy,
+        );
+
+        if (!budgetValidation.isValid) {
+          // Over budget - auto-reject
+          status = "REJECTED";
+        } else if (applicablePolicy.requiresReview) {
+          // Within budget but requires review
+          status = "PENDING";
+        } else {
+          // Within budget and no review required - auto-approve
+          status = "APPROVED";
+        }
       }
 
       return ctx.db.expense.create({
@@ -212,6 +225,47 @@ export const expenseRouter = createTRPCRouter({
           code: "BAD_REQUEST",
           message: "Only pending expenses can be approved",
         });
+      }
+
+      // Check budget before approving
+      const policy = await ctx.db.policy.findFirst({
+        where: {
+          categoryId: expense.categoryId,
+          userId: expense.userId,
+          organizationId: expense.organizationId,
+        },
+      });
+
+      const orgWidePolicy =
+        !policy &&
+        (await ctx.db.policy.findFirst({
+          where: {
+            categoryId: expense.categoryId,
+            userId: null,
+            organizationId: expense.organizationId,
+          },
+        }));
+
+      const applicablePolicy = policy ?? orgWidePolicy;
+
+      if (applicablePolicy) {
+        const budgetValidation = await validateBudget(
+          ctx.db,
+          expense.userId,
+          expense.categoryId,
+          expense.organizationId,
+          expense.amount,
+          expense.date,
+          applicablePolicy,
+          expense.id, // Exclude the current expense from budget calculation
+        );
+
+        if (!budgetValidation.isValid) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Approving this expense would exceed the budget. Current spent: $${budgetValidation.currentSpent.toFixed(2)}, Limit: $${budgetValidation.limit.toFixed(2)}, This expense: $${expense.amount.toFixed(2)}`,
+          });
+        }
       }
 
       return ctx.db.expense.update({
